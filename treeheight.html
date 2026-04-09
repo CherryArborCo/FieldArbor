@@ -1,0 +1,509 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+<title>TreeHeight — Cherry Arbor Co.</title>
+<link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@400;500;600;700&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --navy:#1a2744; --navy-light:#243456; --navy-dark:#0f1a2e;
+    --cherry:#c0392b; --cherry-light:#e74c3c;
+    --cream:#f5f0e8; --cream-dim:rgba(245,240,232,0.5);
+    --gold:#d4a03c; --green:#27ae60; --green-dim:rgba(39,174,96,0.12);
+  }
+  *{margin:0;padding:0;box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+  body{font-family:'DM Sans',-apple-system,BlinkMacSystemFont,sans-serif;background:linear-gradient(170deg,var(--navy-dark)0%,var(--navy)50%,var(--navy-dark)100%);color:var(--cream);min-height:100dvh;overflow-x:hidden}
+
+  .header{width:100%;padding:14px 20px;display:flex;align-items:center;gap:12px;border-bottom:2px solid var(--cherry);background:var(--navy);position:sticky;top:0;z-index:100}
+  .header-logo{width:34px;height:34px;border-radius:50%;background:var(--cherry);display:flex;align-items:center;justify-content:center;font-size:17px;flex-shrink:0}
+  .header h1{font-size:16px;font-weight:700;letter-spacing:-0.3px;line-height:1.2}
+  .header .sub{font-size:10px;color:var(--cream-dim);letter-spacing:1px;text-transform:uppercase}
+
+  .step-bar{display:flex;align-items:center;justify-content:center;padding:16px 20px 8px}
+  .step-circle{width:32px;height:32px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:13px;font-weight:700;color:var(--cream-dim);background:rgba(255,255,255,0.08);transition:all .3s}
+  .step-circle.active{background:var(--cherry);color:#fff;box-shadow:0 0 16px rgba(192,57,43,0.4)}
+  .step-circle.done{background:var(--green);color:#fff}
+  .step-label{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px;color:var(--cream-dim);text-align:center;margin-top:4px;transition:color .3s}
+  .step-label.lit{color:var(--cream)}
+  .step-connector{width:40px;height:2px;margin:0 6px;margin-bottom:18px;background:rgba(255,255,255,0.08);border-radius:1;transition:background .3s}
+  .step-connector.done{background:var(--green)}
+
+  .container{max-width:400px;margin:0 auto;padding:0 16px 180px}
+  .card{background:var(--navy-light);border-radius:14px;padding:20px;border:1px solid rgba(255,255,255,0.06);margin-top:14px}
+  .card-label{font-size:10px;text-transform:uppercase;letter-spacing:1px;color:var(--cream-dim);font-weight:600;margin-bottom:14px}
+
+  .field{margin-bottom:16px}.field:last-child{margin-bottom:0}
+  .field label{font-size:13px;font-weight:600;display:block;margin-bottom:6px}
+  .field input{width:100%;padding:14px 16px;background:var(--navy-dark);border:1px solid rgba(255,255,255,0.1);border-radius:10px;color:var(--cream);font-size:22px;font-weight:700;text-align:center;outline:none;font-family:'DM Mono',monospace;transition:border-color .2s}
+  .field input:focus{border-color:var(--cherry)}
+  .field .hint{font-size:11px;color:var(--cream-dim);margin-top:6px;text-align:center}
+
+  .btn{width:100%;padding:16px;border-radius:10px;border:none;font-size:16px;font-weight:700;cursor:pointer;letter-spacing:.3px;transition:all .15s;font-family:'DM Sans',sans-serif}
+  .btn:active{transform:scale(0.97)}
+  .btn-cherry{background:var(--cherry);color:#fff;box-shadow:0 4px 20px rgba(192,57,43,0.3)}
+  .btn-gold{background:var(--gold);color:#fff;box-shadow:0 4px 20px rgba(212,160,60,0.3)}
+  .btn-secondary{background:var(--navy-light);color:var(--cream);border:1px solid rgba(255,255,255,0.1)}
+
+  .sight-guide{width:100%;padding:16px;border-radius:12px;margin-top:8px}
+  .sight-guide.base-mode{background:rgba(39,174,96,0.09);border:1px solid rgba(39,174,96,0.27)}
+  .sight-guide.top-mode{background:rgba(212,160,60,0.09);border:1px solid rgba(212,160,60,0.27)}
+  .sight-guide svg{width:100%;display:block;margin-bottom:10px}
+  .sight-title{font-size:16px;font-weight:700;text-align:center;margin-bottom:4px;line-height:1.3}
+  .sight-desc{font-size:13px;color:var(--cream-dim);text-align:center;line-height:1.5}
+
+  .dial-wrap{display:flex;flex-direction:column;align-items:center;gap:12px;margin-top:12px}
+  .dial{width:220px;height:220px;border-radius:50%;background:radial-gradient(circle at 50% 50%,var(--navy-light),var(--navy-dark));border:3px solid rgba(255,255,255,0.15);position:relative;box-shadow:inset 0 0 40px rgba(0,0,0,0.3),0 0 30px rgba(192,57,43,0.08)}
+  .dial-xh,.dial-xv{position:absolute;background:rgba(245,240,232,0.06)}
+  .dial-xh{top:50%;left:10%;width:80%;height:1px;transform:translateY(-50%)}
+  .dial-xv{left:50%;top:10%;height:80%;width:1px;transform:translateX(-50%)}
+  .dial-tick{position:absolute;left:50%;bottom:50%;transform-origin:bottom center;border-radius:1px}
+  .dial-tick-label{position:absolute;font-size:10px;color:var(--cream-dim);font-weight:500;transform:translate(-50%,-50%);font-variant-numeric:tabular-nums}
+  .needle{position:absolute;left:50%;bottom:50%;width:3px;height:84px;background:linear-gradient(to top,var(--cherry),var(--cherry-light));transform-origin:bottom center;border-radius:2px;z-index:2;box-shadow:0 0 14px rgba(192,57,43,0.35);transition:transform .08s ease-out}
+  .dial-center{position:absolute;left:50%;top:50%;width:14px;height:14px;border-radius:50%;background:var(--cherry);transform:translate(-50%,-50%);box-shadow:0 0 12px rgba(192,57,43,0.5);z-index:3}
+  .locked-marker{position:absolute;left:50%;bottom:50%;width:3px;height:80px;transform-origin:bottom center;border-radius:2px;opacity:.5}
+  .locked-marker.bm{background:var(--green)}.locked-marker.tm{background:var(--gold)}
+
+  .angle-readout{font-family:'DM Mono',monospace;font-size:48px;font-weight:700;letter-spacing:-2px;line-height:1;text-align:center}
+  .angle-readout .deg{font-size:24px;color:var(--cream-dim);font-weight:400}
+
+  .manual-input-wrap{width:100%;margin-top:12px}
+  .manual-input-wrap label{font-size:13px;font-weight:600;display:block;margin-bottom:6px;text-align:center}
+  .manual-input-wrap input{width:100%;padding:14px 16px;background:var(--navy-dark);border:1px solid rgba(255,255,255,0.1);border-radius:10px;color:var(--cream);font-size:28px;font-weight:700;text-align:center;outline:none;font-family:'DM Mono',monospace}
+  .manual-input-wrap input:focus{border-color:var(--cherry)}
+  .manual-input-wrap .hint{font-size:11px;color:var(--cream-dim);margin-top:6px;text-align:center}
+
+  .mode-badge{display:inline-flex;align-items:center;gap:6px;padding:6px 12px;border-radius:20px;font-size:11px;font-weight:600;letter-spacing:.3px;margin-top:8px}
+  .mode-badge.sensor{background:rgba(39,174,96,0.15);color:var(--green);border:1px solid rgba(39,174,96,0.3)}
+  .mode-badge.manual{background:rgba(212,160,60,0.15);color:var(--gold);border:1px solid rgba(212,160,60,0.3)}
+
+  .chip-row{display:flex;gap:10px;width:100%;margin-top:8px}
+  .chip{flex:1;padding:10px 12px;border-radius:8px;text-align:center}
+  .chip-base{background:var(--green-dim);border:1px solid rgba(39,174,96,0.4)}
+  .chip-lbl{font-size:10px;font-weight:600;text-transform:uppercase;letter-spacing:.5px}
+  .chip-base .chip-lbl{color:var(--green)}
+  .chip-val{font-size:18px;font-weight:700;font-family:'DM Mono',monospace}
+
+  .result-hero{background:linear-gradient(135deg,var(--navy-light),var(--navy));border-radius:14px;padding:28px;text-align:center;border:2px solid var(--cherry);box-shadow:0 8px 40px rgba(192,57,43,0.12);margin-top:8px}
+  .result-height{font-size:64px;font-weight:700;letter-spacing:-3px;font-family:'DM Mono',monospace;line-height:1}
+  .result-height .unit{font-size:28px;color:var(--cream-dim);font-weight:400}
+  .result-sublabel{font-size:10px;text-transform:uppercase;letter-spacing:1.2px;color:var(--cream-dim);font-weight:600;margin-bottom:8px}
+  .breakdown{background:var(--navy-light);border-radius:10px;padding:16px;border:1px solid rgba(255,255,255,0.06);font-family:'DM Mono',monospace;font-size:12px;line-height:2;color:var(--cream-dim);margin-top:14px}
+  .brow{display:flex;justify-content:space-between}
+  .bval{color:var(--cream)}.bval-gold{color:var(--gold)}.bval-green{color:var(--green)}
+  .bsep{border-top:1px solid rgba(255,255,255,0.06);margin-top:6px;padding-top:6px}
+  .actions{display:flex;gap:10px;margin-top:14px}
+  .actions .btn{flex:1;font-size:14px;padding:14px}
+
+  .tips{font-size:12px;color:var(--cream-dim);line-height:1.8;padding:14px 16px;background:rgba(255,255,255,0.02);border-radius:10px;border:1px solid rgba(255,255,255,0.04)}
+  .tips strong{color:var(--cream);font-weight:600}
+
+  /* ── FIXED BOTTOM LOCK BAR ── */
+  .lock-bar{
+    position:fixed;bottom:0;left:0;right:0;z-index:150;
+    padding:12px 16px calc(12px + env(safe-area-inset-bottom,0px)) 16px;
+    background:linear-gradient(to top,var(--navy-dark) 60%,transparent);
+    display:none;
+  }
+  .lock-bar.visible{display:block}
+  .lock-btn-big{
+    width:100%;padding:22px;border-radius:14px;border:none;
+    font-size:20px;font-weight:700;cursor:pointer;
+    font-family:'DM Sans',sans-serif;letter-spacing:.3px;
+    transition:all .15s;
+    min-height:70px;
+  }
+  .lock-btn-big:active{transform:scale(0.97)}
+  .lock-btn-big.cherry{background:var(--cherry);color:#fff;box-shadow:0 6px 30px rgba(192,57,43,0.4)}
+  .lock-btn-big.gold{background:var(--gold);color:#fff;box-shadow:0 6px 30px rgba(212,160,60,0.4)}
+
+  .toast{position:fixed;bottom:100px;left:50%;z-index:300;transform:translateX(-50%) translateY(80px);background:var(--green);color:#fff;padding:10px 24px;border-radius:24px;font-size:14px;font-weight:600;white-space:nowrap;box-shadow:0 4px 20px rgba(0,0,0,0.3);transition:transform .3s ease;pointer-events:none}
+  .toast.show{transform:translateX(-50%) translateY(0)}
+
+  .perm{position:fixed;inset:0;z-index:200;background:rgba(15,26,46,0.96);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:40px;text-align:center;gap:16px}
+  .perm.hidden{display:none}
+  .perm h2{font-size:20px;font-weight:700}
+  .perm p{font-size:14px;color:var(--cream-dim);line-height:1.6;max-width:300px}
+  .perm-btn{background:var(--cherry);color:#fff;border:none;padding:16px 40px;border-radius:10px;font-size:16px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;width:260px}
+  .perm-btn-outline{background:transparent;color:var(--cream);border:1px solid rgba(255,255,255,0.2);padding:14px 40px;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;font-family:'DM Sans',sans-serif;width:260px}
+
+  .hidden{display:none !important}
+  .mt8{margin-top:8px}.mt14{margin-top:14px}
+</style>
+</head>
+<body>
+
+<!-- PERMISSION / MODE SELECT -->
+<div class="perm" id="permOverlay">
+  <div style="font-size:48px">📐</div>
+  <h2>TreeHeight</h2>
+  <p>Measure tree height using your phone as a clinometer, or enter angles manually.</p>
+  <button class="perm-btn" id="permBtn">📱 Use Phone Sensor</button>
+  <button class="perm-btn-outline" id="manualBtn">✏️ Enter Angles Manually</button>
+  <p id="sensorNote" class="hidden" style="color:var(--gold);font-size:12px;max-width:300px;line-height:1.5">
+    ⚠️ Sensor needs HTTPS. File:// won't work — use manual mode, or host the file to enable sensor.
+  </p>
+</div>
+
+<!-- HEADER -->
+<div class="header">
+  <div class="header-logo">🌳</div>
+  <div><h1>TreeHeight</h1><div class="sub">Cherry Arbor Co.</div></div>
+</div>
+
+<!-- STEP BAR -->
+<div class="step-bar">
+  <div style="display:flex;align-items:center">
+    <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+      <div class="step-circle active" id="sc0">1</div><span class="step-label lit" id="sl0">Setup</span>
+    </div>
+    <div class="step-connector" id="con0"></div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+      <div class="step-circle" id="sc1">2</div><span class="step-label" id="sl1">Base</span>
+    </div>
+    <div class="step-connector" id="con1"></div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+      <div class="step-circle" id="sc2">3</div><span class="step-label" id="sl2">Top</span>
+    </div>
+    <div class="step-connector" id="con2"></div>
+    <div style="display:flex;flex-direction:column;align-items:center;gap:4px">
+      <div class="step-circle" id="sc3">4</div><span class="step-label" id="sl3">Result</span>
+    </div>
+  </div>
+</div>
+
+<div class="container">
+
+  <!-- STEP 0: SETUP -->
+  <div id="step0">
+    <div class="card">
+      <div class="card-label">Step 1 — Enter your measurements</div>
+      <div class="field">
+        <label>Distance to tree (m)</label>
+        <input type="number" inputmode="decimal" id="distance" value="15" step="0.1" placeholder="e.g. 15">
+        <div class="hint">Tape measure, rangefinder, or paced estimate</div>
+      </div>
+      <div class="field">
+        <label>Your eye height (m)</label>
+        <input type="number" inputmode="decimal" id="eyeHeight" value="1.6" step="0.05">
+        <div class="hint">Your height minus ~10 cm</div>
+      </div>
+    </div>
+    <div style="text-align:center;margin-top:12px">
+      <span class="mode-badge sensor" id="badgeSensor" style="display:none">📱 Sensor mode</span>
+      <span class="mode-badge manual" id="badgeManual" style="display:none">✏️ Manual mode</span>
+    </div>
+    <button class="btn btn-cherry mt14" onclick="goStep(1)">Next → Measure Base Angle</button>
+    <div class="card" style="padding:16px">
+      <div class="tips">
+        <strong>How it works</strong><br>
+        1. Stand well back from the tree (1–1.5× its height)<br>
+        2. Hold phone at eye level and <strong>sight along its top edge</strong> like a gunsight<br>
+        3. Tilt until the top edge points at the <strong style="color:var(--green)">trunk base</strong> → lock<br>
+        4. Tilt up until it points at the <strong style="color:var(--gold)">crown top</strong> → lock<br>
+        5. Get your height estimate instantly<br><br>
+        <span id="manualTip" style="display:none"><strong style="color:var(--gold)">Manual mode:</strong> Use a separate clinometer app or physical clinometer to read angles, then type them in.</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 1: BASE ANGLE -->
+  <div id="step1" class="hidden">
+    <div class="sight-guide base-mode">
+      <svg viewBox="0 0 320 130">
+        <line x1="10" y1="120" x2="310" y2="120" stroke="rgba(245,240,232,0.5)" stroke-width="1" stroke-dasharray="4,4" opacity="0.4"/>
+        <rect x="40" y="15" width="10" height="105" rx="4" fill="#27ae60" opacity="0.5"/>
+        <ellipse cx="45" cy="18" rx="24" ry="22" fill="#27ae60" opacity="0.2"/>
+        <text x="45" y="112" fill="#27ae60" font-size="9" font-weight="600" text-anchor="middle">BASE</text>
+        <text x="45" y="8" fill="rgba(245,240,232,0.5)" font-size="9" font-weight="600" text-anchor="middle" opacity="0.4">TOP</text>
+        <circle cx="45" cy="120" r="6" fill="none" stroke="#27ae60" stroke-width="2"><animate attributeName="r" values="6;10;6" dur="1.5s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.8;0.3;0.8" dur="1.5s" repeatCount="indefinite"/></circle>
+        <circle cx="240" cy="72" r="7" fill="#c0392b" opacity="0.9"/>
+        <line x1="240" y1="79" x2="240" y2="108" stroke="#c0392b" stroke-width="2.5" opacity="0.7" stroke-linecap="round"/>
+        <line x1="240" y1="108" x2="234" y2="120" stroke="#c0392b" stroke-width="2" opacity="0.6" stroke-linecap="round"/>
+        <line x1="240" y1="108" x2="246" y2="120" stroke="#c0392b" stroke-width="2" opacity="0.6" stroke-linecap="round"/>
+        <line x1="240" y1="88" x2="218" y2="82" stroke="#c0392b" stroke-width="2" opacity="0.6" stroke-linecap="round"/>
+        <rect x="210" y="78" width="12" height="6" rx="1.5" fill="#f5f0e8" opacity="0.8" transform="rotate(15,216,81)"/>
+        <line x1="213" y1="83" x2="50" y2="120" stroke="#27ae60" stroke-width="1.5" stroke-dasharray="6,4" opacity="0.7"/>
+        <polygon points="50,120 58,116 56,122" fill="#27ae60" opacity="0.7"/>
+        <text x="260" y="74" fill="rgba(245,240,232,0.5)" font-size="8" opacity="0.5">eye level</text>
+      </svg>
+      <div class="sight-title">Sight along your phone's top edge → tree BASE</div>
+      <div class="sight-desc">Hold phone at eye level. Tilt down until the top edge lines up with where the trunk meets the ground.</div>
+    </div>
+
+    <!-- SENSOR: dial -->
+    <div id="sensorBase" class="hidden">
+      <div class="dial-wrap" id="dialWrap">
+        <div class="dial" id="dial">
+          <div class="dial-xh"></div><div class="dial-xv"></div>
+          <div id="dialTicks"></div><div id="dialMarkers"></div>
+          <div class="needle" id="needle"></div><div class="dial-center"></div>
+        </div>
+        <div class="angle-readout"><span id="liveAngle">0.0</span><span class="deg">°</span></div>
+      </div>
+    </div>
+
+    <!-- MANUAL: input -->
+    <div id="manualBase" class="hidden">
+      <div class="manual-input-wrap">
+        <label>Base angle (°)</label>
+        <input type="number" inputmode="decimal" id="manualBaseAngle" step="0.1" placeholder="e.g. -5.2">
+        <div class="hint">Negative = looking down below eye level (typical)<br>Use a clinometer app to read the angle</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 2: TOP ANGLE -->
+  <div id="step2" class="hidden">
+    <div class="sight-guide top-mode">
+      <svg viewBox="0 0 320 130">
+        <line x1="10" y1="120" x2="310" y2="120" stroke="rgba(245,240,232,0.5)" stroke-width="1" stroke-dasharray="4,4" opacity="0.4"/>
+        <rect x="40" y="15" width="10" height="105" rx="4" fill="#27ae60" opacity="0.5"/>
+        <ellipse cx="45" cy="18" rx="24" ry="22" fill="#27ae60" opacity="0.2"/>
+        <text x="45" y="112" fill="rgba(245,240,232,0.5)" font-size="9" font-weight="600" text-anchor="middle" opacity="0.4">BASE</text>
+        <text x="45" y="8" fill="#d4a03c" font-size="9" font-weight="600" text-anchor="middle">TOP</text>
+        <circle cx="45" cy="15" r="6" fill="none" stroke="#d4a03c" stroke-width="2"><animate attributeName="r" values="6;10;6" dur="1.5s" repeatCount="indefinite"/><animate attributeName="opacity" values="0.8;0.3;0.8" dur="1.5s" repeatCount="indefinite"/></circle>
+        <circle cx="240" cy="72" r="7" fill="#c0392b" opacity="0.9"/>
+        <line x1="240" y1="79" x2="240" y2="108" stroke="#c0392b" stroke-width="2.5" opacity="0.7" stroke-linecap="round"/>
+        <line x1="240" y1="108" x2="234" y2="120" stroke="#c0392b" stroke-width="2" opacity="0.6" stroke-linecap="round"/>
+        <line x1="240" y1="108" x2="246" y2="120" stroke="#c0392b" stroke-width="2" opacity="0.6" stroke-linecap="round"/>
+        <line x1="240" y1="85" x2="220" y2="74" stroke="#c0392b" stroke-width="2" opacity="0.6" stroke-linecap="round"/>
+        <rect x="212" y="68" width="12" height="6" rx="1.5" fill="#f5f0e8" opacity="0.8" transform="rotate(-18,218,71)"/>
+        <line x1="215" y1="71" x2="50" y2="15" stroke="#d4a03c" stroke-width="1.5" stroke-dasharray="6,4" opacity="0.7"/>
+        <polygon points="50,15 58,12 56,20" fill="#d4a03c" opacity="0.7"/>
+        <text x="260" y="74" fill="rgba(245,240,232,0.5)" font-size="8" opacity="0.5">eye level</text>
+      </svg>
+      <div class="sight-title">Sight along your phone's top edge → tree TOP</div>
+      <div class="sight-desc">Keep phone at eye level. Tilt up until the top edge lines up with the very highest point of the crown.</div>
+    </div>
+
+    <!-- SENSOR: dial -->
+    <div id="sensorTop" class="hidden">
+      <div class="dial-wrap" id="dialWrap2"></div>
+      <div class="chip-row">
+        <div class="chip chip-base"><div class="chip-lbl">Base ✓</div><div class="chip-val" id="chipBase2">—</div></div>
+      </div>
+    </div>
+
+    <!-- MANUAL: input -->
+    <div id="manualTop" class="hidden">
+      <div class="chip-row">
+        <div class="chip chip-base"><div class="chip-lbl">Base ✓</div><div class="chip-val" id="chipBase2m">—</div></div>
+      </div>
+      <div class="manual-input-wrap" style="margin-top:12px">
+        <label>Top angle (°)</label>
+        <input type="number" inputmode="decimal" id="manualTopAngle" step="0.1" placeholder="e.g. 42.5">
+        <div class="hint">Positive = looking up above eye level</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- STEP 3: RESULT -->
+  <div id="step3" class="hidden">
+    <div class="result-hero">
+      <div class="result-sublabel">Estimated Tree Height</div>
+      <div class="result-height"><span id="resultH">0.0</span> <span class="unit">m</span></div>
+    </div>
+    <div style="margin-top:14px">
+      <svg id="treeDiagram" viewBox="0 0 300 200" style="width:100%;max-width:300px;display:block;margin:0 auto"></svg>
+    </div>
+    <div class="breakdown" id="breakdown"></div>
+    <div class="actions">
+      <button class="btn btn-secondary" onclick="copyResult()">📋 Copy</button>
+      <button class="btn btn-cherry" onclick="resetAll()">↻ New Measurement</button>
+    </div>
+  </div>
+
+</div>
+
+<!-- FIXED BOTTOM LOCK BAR -->
+<div class="lock-bar" id="lockBar">
+  <button class="lock-btn-big cherry" id="lockBtnBig" onclick="handleLock()">
+    🔒 Lock Base Angle
+  </button>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+let step=0,currentPitch=0,baseAngle=null,topAngle=null;
+let isLocking=false,lockBuffer=[],sensorReady=false;
+let mode='manual';
+const LOCK_MS=500;
+const deg2rad=d=>d*Math.PI/180;
+const $=id=>document.getElementById(id);
+
+// Build dial ticks
+(function(){
+  const c=$('dialTicks');
+  for(let a=-60;a<=60;a+=10){
+    const rot=-a,major=a%30===0;
+    const t=document.createElement('div');t.className='dial-tick';
+    Object.assign(t.style,{width:major?'3px':'1px',height:major?'20px':'12px',background:major?'rgba(245,240,232,0.3)':'rgba(245,240,232,0.1)',transform:'translateX(-50%) rotate('+rot+'deg)'});
+    c.appendChild(t);
+    if(major){const l=document.createElement('span');l.className='dial-tick-label';const r=68,ar=deg2rad(rot-90);l.style.left='calc(50% + '+(Math.cos(ar)*r)+'px)';l.style.top='calc(50% + '+(Math.sin(ar)*r)+'px)';l.textContent=a+'°';c.appendChild(l)}
+  }
+})();
+
+// Sensor
+$('permBtn').onclick=tryStartSensor;
+$('manualBtn').onclick=startManual;
+
+function tryStartSensor(){
+  if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'){
+    DeviceOrientationEvent.requestPermission().then(s=>s==='granted'?startSensor():fallback()).catch(()=>fallback());
+  }else if('DeviceOrientationEvent' in window){
+    let got=false;
+    let fn=e=>{if(e.beta!==null){got=true;window.removeEventListener('deviceorientation',fn,true);startSensor()}};
+    window.addEventListener('deviceorientation',fn,true);
+    setTimeout(()=>{window.removeEventListener('deviceorientation',fn,true);if(!got)fallback()},2000);
+  }else fallback();
+}
+function fallback(){$('sensorNote').classList.remove('hidden');setTimeout(()=>startManual(),100)}
+function startSensor(){mode='sensor';sensorReady=true;$('permOverlay').classList.add('hidden');$('badgeSensor').style.display='inline-flex';window.addEventListener('deviceorientation',onOrient,true)}
+function startManual(){mode='manual';$('permOverlay').classList.add('hidden');$('badgeManual').style.display='inline-flex';$('manualTip').style.display='inline'}
+
+function onOrient(e){
+  if(e.beta===null)return;
+  let p=Math.max(-90,Math.min(90,e.beta-90));
+  currentPitch=p;updateDial(p);
+  if(isLocking)lockBuffer.push(p);
+}
+function updateDial(a){
+  $('needle').style.transform='translateX(-50%) rotate('+(-a)+'deg)';
+  const el=$('liveAngle');if(el)el.textContent=a.toFixed(1);
+}
+
+// Step nav
+function goStep(n){
+  if(n===1){const d=parseFloat($('distance').value),e=parseFloat($('eyeHeight').value);if(!d||d<=0||!e||e<=0){showToast('Fill in both fields');return}}
+  for(let i=0;i<4;i++)$('step'+i).classList.add('hidden');
+  $('step'+n).classList.remove('hidden');
+
+  if(n===1){
+    if(mode==='sensor'){$('sensorBase').classList.remove('hidden');$('manualBase').classList.add('hidden');const w=$('dialWrap');if(!w.querySelector('.dial')){w.innerHTML='';w.appendChild($('dial'));const r=document.createElement('div');r.className='angle-readout';r.innerHTML='<span id="liveAngle">'+currentPitch.toFixed(1)+'</span><span class="deg">°</span>';w.appendChild(r)}}
+    else{$('sensorBase').classList.add('hidden');$('manualBase').classList.remove('hidden')}
+  }
+  if(n===2){
+    if(mode==='sensor'){$('sensorTop').classList.remove('hidden');$('manualTop').classList.add('hidden');const w=$('dialWrap2');w.innerHTML='';w.appendChild($('dial'));const r=document.createElement('div');r.className='angle-readout';r.innerHTML='<span id="liveAngle">'+currentPitch.toFixed(1)+'</span><span class="deg">°</span>';w.appendChild(r);$('chipBase2').textContent=baseAngle.toFixed(1)+'°'}
+    else{$('sensorTop').classList.add('hidden');$('manualTop').classList.remove('hidden');$('chipBase2m').textContent=baseAngle.toFixed(1)+'°'}
+  }
+
+  step=n;
+  for(let i=0;i<4;i++){const sc=$('sc'+i),sl=$('sl'+i);sc.className='step-circle';sl.className='step-label';if(i<n){sc.className='step-circle done';sc.textContent='✓';sl.className='step-label lit'}else if(i===n){sc.className='step-circle active';sc.textContent=i+1;sl.className='step-label lit'}else sc.textContent=i+1}
+  for(let i=0;i<3;i++)$('con'+i).className=i<n?'step-connector done':'step-connector';
+  updateMarkers();
+
+  // Show/hide bottom lock bar + update its label
+  const bar=$('lockBar'),btn=$('lockBtnBig');
+  if(n===1){
+    bar.classList.add('visible');
+    btn.textContent=mode==='sensor'?'🔒  LOCK BASE ANGLE':'✓  CONFIRM BASE ANGLE';
+    btn.className='lock-btn-big cherry';
+  }else if(n===2){
+    bar.classList.add('visible');
+    btn.textContent=mode==='sensor'?'🔒  LOCK TOP ANGLE':'✓  CONFIRM TOP ANGLE';
+    btn.className='lock-btn-big cherry';
+  }else{
+    bar.classList.remove('visible');
+  }
+
+  window.scrollTo({top:0,behavior:'smooth'});
+}
+
+function updateMarkers(){
+  const mc=$('dialMarkers');if(!mc)return;mc.innerHTML='';
+  if(baseAngle!==null){const m=document.createElement('div');m.className='locked-marker bm';m.style.transform='translateX(-50%) rotate('+baseAngle+'deg)';mc.appendChild(m)}
+  if(topAngle!==null){const m=document.createElement('div');m.className='locked-marker tm';m.style.transform='translateX(-50%) rotate('+topAngle+'deg)';mc.appendChild(m)}
+}
+
+// Unified lock handler — called by the big bottom button
+function handleLock(){
+  if(step===1){
+    if(mode==='sensor') doSensorLock('base');
+    else doManualLock('base');
+  }else if(step===2){
+    if(mode==='sensor') doSensorLock('top');
+    else doManualLock('top');
+  }
+}
+
+function doSensorLock(which){
+  if(isLocking)return;
+  isLocking=true;lockBuffer=[currentPitch];
+  const btn=$('lockBtnBig');
+  btn.textContent='⏳  AVERAGING...';btn.className='lock-btn-big gold';
+
+  setTimeout(()=>{
+    const avg=lockBuffer.reduce((a,b)=>a+b,0)/lockBuffer.length;
+    const r=Math.round(avg*10)/10;
+    if(which==='base'){baseAngle=r;showToast('Base angle locked ✓');goStep(2)}
+    else{topAngle=r;showToast('Top angle locked ✓');showResult();goStep(3)}
+    isLocking=false;lockBuffer=[];
+  },LOCK_MS);
+}
+
+function doManualLock(which){
+  if(which==='base'){
+    const v=parseFloat($('manualBaseAngle').value);
+    if(isNaN(v)){showToast('Enter a base angle');return}
+    baseAngle=v;showToast('Base angle set ✓');goStep(2);
+  }else{
+    const v=parseFloat($('manualTopAngle').value);
+    if(isNaN(v)){showToast('Enter a top angle');return}
+    topAngle=v;showToast('Top angle set ✓');showResult();goStep(3);
+  }
+}
+
+// Result
+function showResult(){
+  const d=parseFloat($('distance').value),e=parseFloat($('eyeHeight').value);
+  const h=d*(Math.tan(deg2rad(topAngle))-Math.tan(deg2rad(baseAngle)))+e;
+  $('resultH').textContent=h.toFixed(1);
+
+  $('breakdown').innerHTML=
+    '<div class="brow"><span>Distance</span><span class="bval">'+d+'m</span></div>'+
+    '<div class="brow"><span>Eye height</span><span class="bval">'+e+'m</span></div>'+
+    '<div class="brow"><span>Top angle</span><span class="bval-gold">'+topAngle.toFixed(1)+'°</span></div>'+
+    '<div class="brow"><span>Base angle</span><span class="bval-green">'+baseAngle.toFixed(1)+'°</span></div>'+
+    '<div class="brow bsep"><span>Formula</span><span class="bval" style="font-size:11px">d×(tan α₂ − tan α₁) + eye</span></div>';
+
+  const svg=$('treeDiagram');
+  const eyeFrac=Math.max(0.05,Math.min(0.95,e/h));
+  const ey=180-(eyeFrac*140)-8;
+  svg.innerHTML=
+    '<line x1="20" y1="180" x2="280" y2="180" stroke="rgba(245,240,232,0.5)" stroke-width="1" stroke-dasharray="4,4"/>'+
+    '<rect x="55" y="40" width="10" height="140" rx="3" fill="#27ae60" opacity="0.6"/>'+
+    '<ellipse cx="60" cy="40" rx="28" ry="30" fill="#27ae60" opacity="0.25"/>'+
+    '<circle cx="230" cy="'+ey+'" r="6" fill="#c0392b" opacity="0.8"/>'+
+    '<line x1="230" y1="'+(ey+6)+'" x2="230" y2="180" stroke="#c0392b" stroke-width="2" opacity="0.6"/>'+
+    '<line x1="230" y1="'+ey+'" x2="60" y2="40" stroke="#d4a03c" stroke-width="1" stroke-dasharray="4,3" opacity="0.7"/>'+
+    '<line x1="230" y1="'+ey+'" x2="60" y2="180" stroke="#27ae60" stroke-width="1" stroke-dasharray="4,3" opacity="0.7"/>'+
+    '<line x1="35" y1="40" x2="35" y2="180" stroke="rgba(245,240,232,0.5)" stroke-width="1"/>'+
+    '<line x1="30" y1="40" x2="40" y2="40" stroke="rgba(245,240,232,0.5)" stroke-width="1"/>'+
+    '<line x1="30" y1="180" x2="40" y2="180" stroke="rgba(245,240,232,0.5)" stroke-width="1"/>'+
+    '<text x="28" y="115" fill="#f5f0e8" font-size="11" font-weight="600" text-anchor="middle" transform="rotate(-90,28,115)">'+h.toFixed(1)+'m</text>'+
+    '<line x1="65" y1="192" x2="225" y2="192" stroke="rgba(245,240,232,0.5)" stroke-width="1"/>'+
+    '<text x="145" y="199" fill="rgba(245,240,232,0.5)" font-size="10" text-anchor="middle">'+d+'m</text>'+
+    '<text x="195" y="'+(ey-10)+'" fill="#d4a03c" font-size="10" font-weight="600" text-anchor="end">'+topAngle.toFixed(1)+'°</text>'+
+    '<text x="195" y="'+(ey+4)+'" fill="#27ae60" font-size="10" font-weight="600" text-anchor="end">'+baseAngle.toFixed(1)+'°</text>';
+}
+
+function copyResult(){
+  const d=$('distance').value,e=$('eyeHeight').value,h=$('resultH').textContent;
+  const t='Tree Height: '+h+'m\nDistance: '+d+'m | Eye Ht: '+e+'m\nTop: '+topAngle.toFixed(1)+'° | Base: '+baseAngle.toFixed(1)+'°\n— TreeHeight / Cherry Arbor Co.';
+  navigator.clipboard?navigator.clipboard.writeText(t).then(()=>showToast('Copied ✓')):showToast('Clipboard not available');
+}
+
+function resetAll(){
+  baseAngle=null;topAngle=null;currentPitch=0;isLocking=false;lockBuffer=[];
+  updateDial(0);updateMarkers();
+  $('manualBaseAngle').value='';$('manualTopAngle').value='';
+  if(mode==='sensor'){const w=$('dialWrap');w.innerHTML='';w.appendChild($('dial'));const r=document.createElement('div');r.className='angle-readout';r.innerHTML='<span id="liveAngle">0.0</span><span class="deg">°</span>';w.appendChild(r)}
+  goStep(0);
+}
+
+function showToast(msg){const t=$('toast');t.textContent=msg;t.classList.add('show');setTimeout(()=>t.classList.remove('show'),2000)}
+</script>
+</body>
+</html>
