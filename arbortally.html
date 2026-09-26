@@ -1,0 +1,216 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>ArborTally</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#2C3E5A;
+    --navy-deep:#233247;
+    --cream:#F5F1E8;
+    --cherry:#E8736A;
+    --line:rgba(44,62,90,.18);
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;
+    -webkit-user-select:none;user-select:none;touch-action:manipulation}
+  html,body{height:100%;overflow:hidden}
+  body{background:var(--cream);color:var(--navy);font-family:'DM Mono',ui-monospace,monospace;
+    display:flex;flex-direction:column;
+    padding:env(safe-area-inset-top) 0 env(safe-area-inset-bottom)}
+
+  #pad{flex:1;display:flex;align-items:center;justify-content:center;
+    padding:0 12px 56px}
+
+  /* ---------- split-flap board ---------- */
+  #board{display:flex;gap:5px}
+  .flip{--w:min(74px,18vw);--fh:calc(var(--w) * 1.42);
+    position:relative;width:var(--w);height:var(--fh);perspective:340px;
+    font-size:calc(var(--fh) * .68);font-weight:500;color:var(--cream)}
+  .half,.flap{position:absolute;left:0;width:100%;height:50%;overflow:hidden;
+    background:var(--navy)}
+  .half .d,.flap .d{position:absolute;left:0;width:100%;height:var(--fh);
+    line-height:var(--fh);text-align:center}
+  .up,.flap.t{top:0;border-radius:5px 5px 0 0;
+    border-bottom:1px solid rgba(0,0,0,.4);
+    background:linear-gradient(to bottom,var(--navy),var(--navy-deep))}
+  .dn,.flap.b{bottom:0;border-radius:0 0 5px 5px;
+    background:linear-gradient(to bottom,var(--navy-deep),var(--navy))}
+  .up .d,.flap.t .d{top:0}
+  .dn .d,.flap.b .d{bottom:0}
+  .flap{z-index:3;backface-visibility:hidden}
+  .flap.t{transform-origin:50% 100%;animation:flipT .15s ease-in forwards}
+  .flap.b{top:50%;bottom:auto;transform:rotateX(90deg);transform-origin:50% 0;
+    animation:flipB .15s .15s ease-out forwards}
+  @keyframes flipT{from{transform:rotateX(0)}   to{transform:rotateX(-90deg)}}
+  @keyframes flipB{from{transform:rotateX(90deg)} to{transform:rotateX(0)}}
+  @media (prefers-reduced-motion:reduce){
+    .flap{display:none}
+  }
+
+  /* ---------- the + ---------- */
+  #fab{position:fixed;right:6px;bottom:calc(96px + env(safe-area-inset-bottom));
+    width:130px;height:130px;border-radius:50%;border:none;background:var(--cherry);color:#fff;
+    font-family:'DM Mono',monospace;font-size:62px;line-height:1;padding:0 0 6px;
+    box-shadow:0 6px 22px rgba(44,62,90,.30);cursor:pointer;z-index:20;
+    touch-action:manipulation}
+  #fab:active{transform:scale(.94);box-shadow:0 3px 12px rgba(44,62,90,.32)}
+
+  #bar{display:flex;align-items:stretch;border-top:1px solid var(--line);height:74px}
+  .ctl{flex:1;background:none;border:none;font-family:'DM Mono',monospace;font-size:12px;
+    letter-spacing:.08em;color:var(--navy);cursor:pointer;position:relative;overflow:hidden;
+    touch-action:none;-webkit-touch-callout:none}
+  .ctl:active{background:rgba(44,62,90,.06)}
+  #undo{border-right:1px solid var(--line)}
+  #undo span,#reset span{position:relative;z-index:2}
+  #fill{position:absolute;inset:0 100% 0 0;background:var(--cherry);opacity:.85;z-index:1}
+  #reset.arming span{color:var(--cream)}
+</style>
+</head>
+<body>
+
+<div id="pad">
+  <div id="board"></div>
+</div>
+
+<button id="fab" aria-label="Add one">+</button>
+
+<div id="bar">
+  <button class="ctl" id="undo"><span>undo &minus;1</span></button>
+  <button class="ctl" id="reset"><span id="rlabel">hold to reset</span><div id="fill"></div></button>
+</div>
+
+<script>
+(function(){
+  const $=id=>document.getElementById(id);
+  const board=$('board'), fill=$('fill'),
+        reset=$('reset'), rlabel=$('rlabel');
+  const KEY='arbortally.v1', DIGITS=4;
+
+  let n=0, cells=[];
+
+  try{
+    const s=JSON.parse(localStorage.getItem(KEY)||'{}');
+    if(typeof s.n==='number') n=s.n;
+  }catch(e){}
+
+  function save(){ try{ localStorage.setItem(KEY,JSON.stringify({n:n})); }catch(e){} }
+  function buzz(ms){ if(navigator.vibrate) navigator.vibrate(ms); }
+
+  // ---- build the board ----
+  for(let i=0;i<DIGITS;i++){
+    const f=document.createElement('div');
+    f.className='flip';
+    f.innerHTML='<div class="half up"><span class="d">0</span></div>'+
+                '<div class="half dn"><span class="d">0</span></div>';
+    board.appendChild(f);
+    cells.push({el:f,val:'0',timer:null});
+  }
+
+  function setDigit(i,ch){
+    const c=cells[i];
+    if(c.val===ch) return;
+    const old=c.val;
+    c.val=ch;
+    clearTimeout(c.timer);
+    c.el.querySelectorAll('.flap').forEach(f=>f.remove());
+
+    // upper half switches to the new digit straight away — the falling flap hides it
+    c.el.querySelector('.up .d').textContent=ch;
+    c.el.querySelector('.dn .d').textContent=old;
+
+    const t=document.createElement('div');
+    t.className='flap t'; t.innerHTML='<span class="d">'+old+'</span>';
+    const b=document.createElement('div');
+    b.className='flap b'; b.innerHTML='<span class="d">'+ch+'</span>';
+    c.el.appendChild(t); c.el.appendChild(b);
+
+    c.timer=setTimeout(function(){
+      c.el.querySelector('.dn .d').textContent=ch;
+      t.remove(); b.remove();
+    },320);
+  }
+
+  function draw(){
+    const s=String(Math.min(n,9999)).padStart(DIGITS,'0');
+    for(let i=0;i<DIGITS;i++) setDigit(i,s[i]);
+  }
+
+  // ---- counting ----
+  function bump(){ n++; draw(); save(); buzz(18); }
+
+  let lastTap=0;
+  function tap(){
+    const t=Date.now();
+    if(t-lastTap<120) return;   // pointerdown and click may both fire
+    lastTap=t; bump();
+  }
+  const fab=$('fab');
+  fab.addEventListener('pointerdown',tap);
+  fab.addEventListener('click',tap);
+  fab.addEventListener('touchstart',tap,{passive:true});
+
+  $('undo').addEventListener('click',function(){
+    if(n>0){ n--; draw(); save(); buzz(10); }
+  });
+
+  // ---- hold to reset ----
+  let t0=null, raf=null, fired=false;
+  const HOLD=1200;
+
+  function doReset(){
+    fired=true;
+    n=0; draw(); save(); buzz([40,60,40]);
+    rlabel.textContent='reset';
+    setTimeout(function(){ if(t0===null) rlabel.textContent='hold to reset'; },900);
+  }
+  function tick(){
+    if(t0===null) return;
+    const p=Math.min(1,(Date.now()-t0)/HOLD);
+    fill.style.inset='0 '+((1-p)*100)+'% 0 0';
+    if(p>=1){ if(!fired) doReset(); clear(); return; }
+    raf=requestAnimationFrame(tick);
+  }
+  function clear(){
+    cancelAnimationFrame(raf);
+    t0=null;
+    fill.style.inset='0 100% 0 0';
+    reset.classList.remove('arming');
+  }
+  function startHold(e){
+    e.preventDefault();
+    fired=false; t0=Date.now();
+    try{ reset.setPointerCapture(e.pointerId); }catch(err){}
+    reset.classList.add('arming'); rlabel.textContent='keep holding';
+    raf=requestAnimationFrame(tick);
+  }
+  function endHold(){
+    if(t0===null) return;
+    const held=Date.now()-t0;
+    clear();
+    if(!fired && held>=HOLD) doReset();        // a cancelled hold still counts
+    if(!fired) rlabel.textContent='hold to reset';
+  }
+  reset.addEventListener('pointerdown',startHold);
+  ['pointerup','pointercancel'].forEach(function(ev){
+    reset.addEventListener(ev,endHold);
+  });
+
+  // ---- keep the screen awake ----
+  let lock=null;
+  async function wake(){
+    try{ if('wakeLock' in navigator) lock=await navigator.wakeLock.request('screen'); }catch(e){}
+  }
+  document.addEventListener('visibilitychange',function(){
+    if(document.visibilityState==='visible') wake();
+  });
+  wake();
+
+  draw();
+})();
+</script>
+</body>
+</html>

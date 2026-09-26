@@ -1,0 +1,278 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+<title>ArborLean</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root{
+    --navy:#2C3E5A;
+    --navy-deep:#1E2B40;
+    --cream:#F5F1E8;
+    --cherry:#E8736A;
+    --good:#7FA98B;
+    --warn:#D9A441;
+  }
+  *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+  html,body{height:100%;overflow:hidden;background:var(--navy-deep);color:var(--cream);
+    font-family:'DM Mono',ui-monospace,monospace}
+
+  /* ---------- start screen ---------- */
+  #start{position:fixed;inset:0;z-index:40;background:var(--navy);
+    display:flex;flex-direction:column;justify-content:center;
+    padding:32px 28px calc(32px + env(safe-area-inset-bottom));gap:22px}
+  #start h1{font-family:'Playfair Display',serif;font-size:40px;font-weight:600;line-height:1.05}
+  #start p{font-size:13px;line-height:1.7;opacity:.8;max-width:34ch}
+  .rule{height:1px;background:var(--cherry);width:56px}
+  .btn{border:none;border-radius:2px;font-family:'DM Mono',monospace;font-size:14px;
+    letter-spacing:.04em;padding:16px 22px;cursor:pointer}
+  .btn-primary{background:var(--cherry);color:#fff}
+  .btn-ghost{background:transparent;color:var(--cream);border:1px solid rgba(245,241,232,.35)}
+  #startErr{color:var(--cherry);font-size:12px;line-height:1.6;display:none}
+
+  /* ---------- camera stage ---------- */
+  #stage{position:fixed;inset:0;background:#000}
+  video,#frozen{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+  #frozen{display:none;z-index:5}
+
+  /* the plumb reference: fixed to the screen, user rotates the phone to match */
+  #guide{position:absolute;inset:0;z-index:8;pointer-events:none}
+  .guideLine{position:absolute;left:50%;width:1px;transform:translateX(-50%);
+    background:rgba(245,241,232,.55);box-shadow:0 0 3px rgba(0,0,0,.6)}
+  #gTop{top:6%;height:36%}
+  #gBot{bottom:6%;height:36%}
+  .pip{position:absolute;left:50%;transform:translateX(-50%);width:7px;height:1px;
+    background:rgba(245,241,232,.55)}
+  #pipA{top:44%}  #pipB{bottom:44%}
+
+  /* ---------- readout ---------- */
+  #hud{position:absolute;z-index:12;left:0;right:0;
+    bottom:calc(112px + env(safe-area-inset-bottom));
+    display:flex;flex-direction:column;align-items:center;gap:8px;pointer-events:none}
+  #dial{transition:transform .06s linear;display:flex;flex-direction:column;align-items:center;gap:2px}
+  #angle{font-family:'Playfair Display',serif;font-size:58px;font-weight:600;line-height:1;
+    text-shadow:0 2px 14px rgba(0,0,0,.75)}
+  #dir{font-size:12px;letter-spacing:.1em;text-shadow:0 1px 8px rgba(0,0,0,.8)}
+  #pill{font-size:11px;letter-spacing:.06em;padding:5px 12px;border-radius:14px;
+    background:rgba(30,43,64,.78);border:1px solid rgba(245,241,232,.2)}
+  #pill.ok{border-color:var(--good);color:var(--good)}
+  #pill.bad{border-color:var(--warn);color:var(--warn)}
+
+  /* ---------- controls ---------- */
+  #bar{position:absolute;z-index:15;left:0;right:0;bottom:0;
+    padding:14px 20px calc(18px + env(safe-area-inset-bottom));
+    background:linear-gradient(to top,rgba(30,43,64,.92),rgba(30,43,64,0));
+    display:flex;align-items:center;justify-content:space-between;gap:14px}
+  #shoot{width:66px;height:66px;border-radius:50%;background:var(--cherry);border:3px solid rgba(255,255,255,.85);cursor:pointer}
+  #shoot:active{transform:scale(.94)}
+  .side{flex:1;display:flex;justify-content:center}
+  #reset{background:none;border:none;color:var(--cream);font-family:'DM Mono',monospace;
+    font-size:11px;letter-spacing:.06em;opacity:.75;cursor:pointer;padding:10px}
+  #review{display:none;gap:12px;width:100%}
+  #review .btn{flex:1}
+  canvas{display:none}
+</style>
+</head>
+<body>
+
+<div id="stage">
+  <video id="cam" playsinline muted autoplay></video>
+  <img id="frozen" alt="Captured lean photograph">
+
+  <div id="guide">
+    <div class="guideLine" id="gTop"></div>
+    <div class="guideLine" id="gBot"></div>
+    <div class="pip" id="pipA"></div>
+    <div class="pip" id="pipB"></div>
+  </div>
+
+  <div id="hud">
+    <div id="dial">
+      <div id="angle">0.0°</div>
+      <div id="dir">hold the phone upright</div>
+    </div>
+    <div id="pill">waiting for sensor</div>
+  </div>
+
+  <div id="bar">
+    <div id="live" style="display:flex;align-items:center;justify-content:space-between;gap:14px;width:100%">
+      <div class="side"><button id="reset">reset hold</button></div>
+      <button id="shoot" aria-label="Capture lean"></button>
+      <div class="side"><span style="font-size:11px;opacity:.55" id="bearing">—</span></div>
+    </div>
+    <div id="review">
+      <button class="btn btn-ghost" id="again">Retake</button>
+      <button class="btn btn-primary" id="save">Save photo</button>
+    </div>
+  </div>
+</div>
+
+<div id="start">
+  <div class="rule"></div>
+  <h1>ArborLean</h1>
+  <p>Hold the phone upright and rotate it until the centre line sits along the trunk. The reading is the trunk's angle from true vertical.</p>
+  <p>Stand well back and walk around the tree — the largest reading is the true lean, and you're then standing square to it.</p>
+  <button class="btn btn-primary" id="go">Start camera</button>
+  <div id="startErr"></div>
+</div>
+
+<canvas id="cv"></canvas>
+
+<script>
+(function(){
+  const $ = id => document.getElementById(id);
+  const cam=$('cam'), angleEl=$('angle'), dirEl=$('dir'), pill=$('pill'),
+        dial=$('dial'), bearingEl=$('bearing'), frozen=$('frozen');
+
+  // gravity vector (device frame), smoothed. Portrait upright ≈ (0, 9.8, 0)
+  let gx=0, gy=9.8, gz=0, sensorLive=false;
+  let heading=null, tilt=0, valid=false;
+  let held=false, shot=null;
+
+  const K=0.14; // low-pass constant — heavier smoothing reads calmer in the hand
+
+  function onMotion(e){
+    const a=e.accelerationIncludingGravity;
+    if(!a || a.x===null || a.x===undefined) return;
+    sensorLive=true;
+    gx+=K*(a.x-gx); gy+=K*(a.y-gy); gz+=K*((a.z||0)-gz);
+  }
+
+  function onHeading(e){
+    if(typeof e.webkitCompassHeading === 'number'){ heading=e.webkitCompassHeading; }
+    else if(e.absolute && typeof e.alpha === 'number'){ heading=(360-e.alpha)%360; }
+  }
+
+  const CARD=['N','NNE','NE','ENE','E','ESE','SE','SSE','S','SSW','SW','WSW','W','WNW','NW','NNW'];
+  const card = b => CARD[Math.round(b/22.5)%16];
+
+  function frame(){
+    if(!held && sensorLive){
+      // angle of the screen's vertical axis away from true vertical
+      tilt = Math.atan2(-gx, gy) * 180/Math.PI;
+
+      // how much of gravity lies in the screen plane — near zero when the phone
+      // is pitched back toward flat, at which point the reading is meaningless
+      const inPlane = Math.hypot(gx,gy);
+      const total   = Math.hypot(gx,gy,gz) || 1;
+      const pitch   = Math.acos(Math.min(1, inPlane/total)) * 180/Math.PI;
+      valid = pitch < 25;
+
+      if(valid){ pill.className='ok'; pill.textContent='phone plumb — reading good'; }
+      else     { pill.className='bad'; pill.textContent='pitched back '+pitch.toFixed(0)+'° — step further away'; }
+
+      render();
+    }
+    requestAnimationFrame(frame);
+  }
+
+  function leanBearing(){
+    if(heading===null || Math.abs(tilt)<0.5) return null;
+    return ((heading + (tilt>0 ? 90 : -90)) % 360 + 360) % 360;
+  }
+
+  function render(){
+    const mag=Math.abs(tilt);
+    angleEl.textContent = mag.toFixed(1)+'°';
+    dirEl.textContent = mag<0.5 ? 'plumb'
+                      : (tilt>0 ? 'leaning right' : 'leaning left');
+    dial.style.transform = 'rotate('+(-tilt)+'deg)'; // keep the number world-upright
+    const b=leanBearing();
+    bearingEl.textContent = b===null ? '—' : card(b)+' '+b.toFixed(0)+'°';
+  }
+
+  // ---------- capture ----------
+  function capture(){
+    held=true;
+    const cv=$('cv'), w=cam.videoWidth, h=cam.videoHeight;
+    if(!w){ held=false; return; }
+    const foot=Math.round(h*0.11);
+    cv.width=w; cv.height=h+foot;
+    const c=cv.getContext('2d');
+    c.drawImage(cam,0,0,w,h);
+
+    // the same reference line, drawn where it sat on screen
+    c.strokeStyle='rgba(245,241,232,.85)'; c.lineWidth=Math.max(2,w/500);
+    c.beginPath();
+    c.moveTo(w/2,h*0.06); c.lineTo(w/2,h*0.42);
+    c.moveTo(w/2,h*0.58); c.lineTo(w/2,h*0.94);
+    c.stroke();
+
+    // data strip
+    const b=leanBearing(), mag=Math.abs(tilt);
+    c.fillStyle='#2C3E5A'; c.fillRect(0,h,w,foot);
+    c.fillStyle='#F5F1E8';
+    const fs=Math.round(foot*0.30);
+    c.font='600 '+Math.round(foot*0.46)+'px "Playfair Display", serif';
+    c.fillText(mag.toFixed(1)+'\u00B0 '+(mag<0.5?'plumb':(tilt>0?'right':'left')), w*0.04, h+foot*0.48);
+    c.font=fs+'px "DM Mono", monospace';
+    c.fillStyle='rgba(245,241,232,.75)';
+    const meta=[ new Date().toLocaleString('en-AU',{dateStyle:'short',timeStyle:'short'}) ];
+    if(b!==null) meta.push('lean bearing '+card(b)+' '+b.toFixed(0)+'\u00B0');
+    if(!valid) meta.push('phone not plumb');
+    c.fillText(meta.join('   |   '), w*0.04, h+foot*0.83);
+
+    shot=cv.toDataURL('image/jpeg',0.92);
+    frozen.src=shot; frozen.style.display='block';
+    $('live').style.display='none'; $('review').style.display='flex';
+  }
+
+  function unfreeze(){
+    held=false; shot=null;
+    frozen.style.display='none';
+    $('live').style.display='flex'; $('review').style.display='none';
+  }
+
+  $('shoot').addEventListener('click', capture);
+  $('again').addEventListener('click', unfreeze);
+  $('reset').addEventListener('click', unfreeze);
+  $('save').addEventListener('click', function(){
+    if(!shot) return;
+    const d=new Date(), p=n=>String(n).padStart(2,'0');
+    const a=document.createElement('a');
+    a.href=shot;
+    a.download='lean_'+d.getFullYear()+p(d.getMonth()+1)+p(d.getDate())+'_'
+             +p(d.getHours())+p(d.getMinutes())+'_'+Math.abs(tilt).toFixed(1)+'deg.jpg';
+    a.click();
+  });
+
+  // ---------- startup ----------
+  async function begin(){
+    const err=$('startErr'); err.style.display='none';
+    try{
+      if(typeof DeviceMotionEvent!=='undefined' && DeviceMotionEvent.requestPermission){
+        const r=await DeviceMotionEvent.requestPermission();
+        if(r!=='granted') throw new Error('Motion sensor access was declined. Reload and allow it.');
+      }
+      if(typeof DeviceOrientationEvent!=='undefined' && DeviceOrientationEvent.requestPermission){
+        try{ await DeviceOrientationEvent.requestPermission(); }catch(e){}
+      }
+      window.addEventListener('devicemotion', onMotion);
+      window.addEventListener('deviceorientationabsolute', onHeading);
+      window.addEventListener('deviceorientation', onHeading);
+
+      const s=await navigator.mediaDevices.getUserMedia({
+        video:{ facingMode:{ideal:'environment'}, width:{ideal:1920}, height:{ideal:1080} },
+        audio:false
+      });
+      cam.srcObject=s; await cam.play();
+
+      $('start').style.display='none';
+      setTimeout(function(){
+        if(!sensorLive){ pill.className='bad'; pill.textContent='no motion sensor on this device'; }
+      },1500);
+    }catch(e){
+      err.textContent = e.message || 'Camera unavailable. This page must be served over HTTPS.';
+      err.style.display='block';
+    }
+  }
+
+  $('go').addEventListener('click', begin);
+  requestAnimationFrame(frame);
+})();
+</script>
+</body>
+</html>
